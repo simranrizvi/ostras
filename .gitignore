@@ -1,0 +1,33 @@
+# Node modules (if used)
+node_modules/
+
+# Deno cache and lock
+deno.lock
+deno.json
+.deno/
+
+# Supabase local setup
+.supabase/
+supabase/.temp/
+supabase/migrations/
+supabase/docker/
+supabase/.env
+
+# Build artifacts
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+config.toml
+
+supabase/config.toml
