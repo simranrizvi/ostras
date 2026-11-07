@@ -1,0 +1,15 @@
+{
+  "name": "ostras-social-studio",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @ostras/api\" \"npm run dev -w @ostras/web\"",
+    "build": "npm run build -w @ostras/web",
+    "start": "concurrently -k -n api,web -c blue,magenta \"npm run start -w @ostras/api\" \"npm run start -w @ostras/web\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "engines": { "node": ">=20.9.0" }
+}
