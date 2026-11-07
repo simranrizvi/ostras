@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-dotenv.config({ path: '../../.env' });
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../');
+dotenv.config({ path: path.join(repositoryRoot, '.env') });
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -19,9 +22,14 @@ const schema = z.object({
   META_REDIRECT_URI: z.string().url().default('http://localhost:4000/api/integrations/instagram/callback'),
   META_GRAPH_VERSION: z.string().default('v27.0'),
   UPLOAD_DIR: z.string().default('./uploads'),
+  N8N_WEBHOOK_URL: z.union([z.string().url(), z.literal('')]).optional(),
+  N8N_WEBHOOK_SECRET: z.union([z.string().min(16), z.literal('')]).optional(),
 });
 
 export const env = schema.parse(process.env);
+if (env.N8N_WEBHOOK_URL && !env.N8N_WEBHOOK_SECRET) {
+  throw new Error('Set N8N_WEBHOOK_SECRET when N8N_WEBHOOK_URL is configured.');
+}
 if (env.NODE_ENV === 'production' && env.JWT_SECRET === 'development-only-change-this-secret-please') {
   throw new Error('Set a private JWT_SECRET before starting in production.');
 }

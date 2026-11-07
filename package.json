@@ -2,11 +2,11 @@
   "name": "ostras-social-studio",
   "private": true,
   "version": "1.0.0",
-  "workspaces": ["apps/api", "apps/web"],
+  "workspaces": ["backend", "frontend"],
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w @ostras/api\" \"npm run dev -w @ostras/web\"",
-    "build": "npm run build -w @ostras/web",
-    "start": "concurrently -k -n api,web -c blue,magenta \"npm run start -w @ostras/api\" \"npm run start -w @ostras/web\""
+    "dev": "concurrently -k -n backend,frontend -c blue,magenta \"npm run dev -w @ostras/backend\" \"npm run dev -w @ostras/frontend\"",
+    "build": "npm run build -w @ostras/frontend",
+    "start": "concurrently -k -n backend,frontend -c blue,magenta \"npm run start -w @ostras/backend\" \"npm run start -w @ostras/frontend\""
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

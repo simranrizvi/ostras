@@ -1,0 +1,47 @@
+{
+  "name": "Ostras Event Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ostras-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "34a7408a-595f-48f6-9ef1-5b0909aca2b0",
+      "name": "Receive Ostras event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "webhookId": "ostras-events"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { received: true, event: $json.body.event, source: 'n8n' } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "ee512b36-8e10-420f-9417-f47c41d5a0cc",
+      "name": "Acknowledge event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [480, 300]
+    }
+  ],
+  "connections": {
+    "Receive Ostras event": {
+      "main": [[{ "node": "Acknowledge event", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b7605f6b-efce-4e43-a4d0-cc0925bb4ac5",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

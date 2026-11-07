@@ -8,9 +8,20 @@ import { requireAuth } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { AppError } from '../utils/errors.js';
 import { encrypt } from '../utils/crypto.js';
+import { n8nConfigured, sendN8nEvent } from '../services/n8n.js';
 
 const router = Router();
 const instagramAuthorize = 'https://www.instagram.com/oauth/authorize';
+
+router.get('/n8n/status', requireAuth, (_req, res) => {
+  res.json({ configured: n8nConfigured(), provider: 'n8n', events: ['post.created', 'post.scheduled', 'post.published', 'post.failed'] });
+});
+
+router.post('/n8n/test', requireAuth, asyncHandler(async (req, res) => {
+  if (!n8nConfigured()) throw new AppError('n8n is not configured. Add N8N_WEBHOOK_URL and N8N_WEBHOOK_SECRET to the backend environment.', 503, 'N8N_NOT_CONFIGURED');
+  await sendN8nEvent('integration.test', { brandId: String(req.user.brandId), message: 'Ostras n8n connection test' });
+  res.json({ success: true, message: 'Test event delivered to n8n.' });
+}));
 
 router.get('/instagram/connect', requireAuth, asyncHandler(async (req, res) => {
   if (!env.META_APP_ID || !env.META_APP_SECRET) throw new AppError('Instagram connection needs Meta app credentials in the API environment.', 503, 'META_NOT_CONFIGURED');

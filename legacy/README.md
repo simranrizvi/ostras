@@ -1,3 +1,3 @@
-# Migration reference
+# Legacy Supabase functions
 
-The original Supabase Edge Functions are retained in `supabase-functions/` as reference material. The active application now runs from `apps/api` (Node.js + Express + MongoDB) and `apps/web` (Next.js). Do not deploy the legacy functions as the active Ostras backend.
+The original Supabase Edge Functions are retained for migration reference. The active application runs from `backend/` (Node.js + Express + MongoDB) and `frontend/` (Next.js). Do not deploy these legacy functions as the active Ostras backend.

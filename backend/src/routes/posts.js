@@ -9,6 +9,7 @@ import { generateSocialCopy, generateSocialImage } from '../services/openai.js';
 import { publishInstagramPost } from '../services/instagram.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { AppError } from '../utils/errors.js';
+import { notifyN8n } from '../services/n8n.js';
 
 const router = Router();
 router.use(requireAuth, requireBrand);
@@ -44,11 +45,13 @@ router.post('/generate', validate(generateSchema), asyncHandler(async (req, res)
     title: generated.title, caption: generated.caption, hashtags: generated.hashtags,
     imageUrl, generation: { provider: 'openai', model: generated.model, promptVersion: 'v1' },
   });
+  notifyN8n('post.created', { brandId: String(brand._id), postId: String(post._id), topic: post.topic, status: post.status });
   res.status(201).json({ post });
 }));
 
 router.post('/', validate(createSchema), asyncHandler(async (req, res) => {
   const post = await ContentPost.create({ brandId: req.user.brandId, createdBy: req.user._id, ...req.validatedBody });
+  notifyN8n('post.created', { brandId: String(req.user.brandId), postId: String(post._id), topic: post.topic, status: post.status });
   res.status(201).json({ post });
 }));
 
@@ -72,6 +75,7 @@ router.post('/:postId/schedule', validate(scheduleSchema), asyncHandler(async (r
     { new: true, runValidators: true },
   );
   if (!post) throw new AppError('This post cannot be scheduled.', 409, 'POST_NOT_SCHEDULABLE');
+  notifyN8n('post.scheduled', { brandId: String(req.user.brandId), postId: String(post._id), scheduledAt: post.scheduledAt });
   res.json({ post });
 }));
 
@@ -90,11 +94,13 @@ router.post('/:postId/publish', asyncHandler(async (req, res) => {
     post.status = 'published';
     post.publishedAt = new Date();
     await post.save();
+    notifyN8n('post.published', { brandId: String(req.user.brandId), postId: String(post._id), publishedAt: post.publishedAt, remoteMediaId: post.remoteMediaId });
     res.json({ post });
   } catch (error) {
     post.status = 'failed';
     post.errorMessage = error.message.slice(0, 400);
     await post.save();
+    notifyN8n('post.failed', { brandId: String(req.user.brandId), postId: String(post._id), error: post.errorMessage });
     throw error;
   }
 }));

@@ -22,7 +22,8 @@ build/
 .env.*.local
 
 # Local uploads and build outputs
-apps/api/uploads/
+backend/uploads/
+uploads/
 .next/
 coverage/
 

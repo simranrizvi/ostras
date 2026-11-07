@@ -3,6 +3,7 @@ import { ContentPost } from '../models/ContentPost.js';
 import { SocialAccount } from '../models/SocialAccount.js';
 import { publishInstagramPost } from './instagram.js';
 import { generateSocialCopy, generateSocialImage } from './openai.js';
+import { notifyN8n } from './n8n.js';
 
 let timer;
 let busy = false;
@@ -56,12 +57,13 @@ async function fillAutomationQueue() {
         const topic = brand.topics[(pending + created) % brand.topics.length];
         const copy = await generateSocialCopy({ brand, topic, platform: 'Instagram' });
         const imageUrl = brand.autoGenerateImages ? await generateSocialImage({ brand, topic }) : '';
-        await ContentPost.create({
+        const queuedPost = await ContentPost.create({
           brandId: brand._id, createdBy: brand.ownerId, topic,
           title: copy.title, caption: copy.caption, hashtags: copy.hashtags,
           imageUrl, status: 'scheduled', scheduledAt,
           generation: { provider: 'openai', model: copy.model, promptVersion: 'auto-v1' },
         });
+        notifyN8n('post.scheduled', { brandId: String(brand._id), postId: String(queuedPost._id), scheduledAt });
         created += 1;
       }
       await Brand.updateOne({ _id: brand._id }, { $set: { automationLastQueuedAt: now } });
@@ -93,8 +95,10 @@ async function processScheduledPosts() {
         if (!brand || !account) throw new Error('Connect an Instagram account before publishing scheduled posts.');
         const remoteMediaId = await publishInstagramPost({ post, account });
         await ContentPost.updateOne({ _id: post._id }, { $set: { status: 'published', publishedAt: new Date(), remoteMediaId } });
+        notifyN8n('post.published', { brandId: String(post.brandId), postId: String(post._id), publishedAt: new Date(), remoteMediaId });
       } catch (error) {
         await ContentPost.updateOne({ _id: post._id }, { $set: { status: 'failed', errorMessage: error.message.slice(0, 400) } });
+        notifyN8n('post.failed', { brandId: String(post.brandId), postId: String(post._id), error: error.message.slice(0, 400) });
         console.error(`Scheduled post ${post._id} failed:`, error.message);
       }
     }

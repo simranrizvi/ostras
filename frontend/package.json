@@ -1,5 +1,5 @@
 {
-  "name": "@ostras/web",
+  "name": "@ostras/frontend",
   "version": "1.0.0",
   "private": true,
   "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
