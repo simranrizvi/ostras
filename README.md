@@ -1,109 +1,187 @@
-# Ostras — Social Content Studio
+# Social Flow
 
-Ostras helps a brand plan, create, review, schedule, and publish Instagram content. The repository is organized as two independent applications: a Next.js frontend and a Node.js/Express backend. MongoDB stores users, brand settings, social connections, and posts. The existing automatic content queue and publishing scheduler remain available, and n8n can receive signed events to trigger additional workflows.
+[![Quality checks](https://github.com/simranrizvi/social-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/simranrizvi/social-flow/actions/workflows/ci.yml)
 
-## Features
+A full-stack Instagram content studio for planning, writing, reviewing, scheduling and publishing brand content. Set a brand voice once, write manually or generate AI drafts, then manage everything from a searchable library and weekly calendar.
 
-- Responsive Next.js App Router dashboard with overview, content studio, post library, publishing calendar, and brand settings.
-- Node.js and Express REST API with MongoDB/Mongoose, workspace accounts, validation, secure HTTP-only sessions, rate limits, and health endpoint.
-- AI caption, hashtags, and optional image generation through OpenAI.
-- Draft editing, scheduling, retry after publish errors, and immediate Instagram publishing.
-- MongoDB-backed scheduler that fills the upcoming queue and publishes due posts. Automatic publishing is off until the owner enables it.
-- Instagram Professional account connection through Meta OAuth with encrypted long-lived access tokens.
-- n8n webhook integration for `post.created`, `post.scheduled`, `post.published`, and `post.failed` events. Events are HMAC-signed; a test event is available from brand settings.
-- Original Supabase Edge Functions retained under `legacy/` for migration reference.
+**Next.js · React · Node.js · Express · MongoDB · OpenAI · Instagram · n8n**
 
-## Technology
+## What it does
 
-| Area | Stack |
-| --- | --- |
-| Frontend | Next.js App Router, React, JavaScript, responsive CSS |
-| Backend | Node.js, Express, JavaScript |
-| Database | MongoDB, Mongoose |
-| Authentication | JWT in HTTP-only cookie, bcrypt password hashing |
-| AI | OpenAI text and image APIs |
-| Publishing | Instagram API with Instagram Login |
-| Workflow automation | n8n webhook with HMAC-SHA256 signatures |
+- **Brand workspace:** cookie authentication, brand voice, audience, topics, timezone and a weekly publishing rhythm.
+- **Content editor:** manual drafts, AI captions and optional JPEG artwork, editable captions/hashtags, image preview and a shared 2,200-character budget.
+- **Post management:** server-side search, status filters, pagination, reopen/edit, duplicate, schedule, return to draft, delete and publish now.
+- **Calendar:** browse weeks with all scheduled posts in the selected date range. Display times use the device timezone; automatic generation uses the brand timezone.
+- **Publishing worker:** durable MongoDB queue, atomic post claims, separate publishing/generation loops, leased brand generation and interrupted-job recovery.
+- **Integrations:** Instagram OAuth with encrypted tokens, automatic token refresh and signed n8n event delivery.
+- **Engineering:** feature-based modules, validated configuration, consistent API errors, request IDs, rate limits, origin checks, integration tests, linting, formatting, CI and Docker services.
 
-## Repository layout
+Automatic generation/publishing is **off by default**. Manual drafts work without OpenAI or Meta credentials. Real generation, OAuth and publishing require your own configured provider accounts.
 
-```text
-frontend/       Next.js application
-backend/        Express API, MongoDB models, AI and integrations
-n8n/            Importable n8n workflow starter
-legacy/         Original Supabase functions retained for reference
-```
+## Quick start
 
-## Local setup
-
-Requirements: Node.js 20.9+, npm, and MongoDB (local installation or MongoDB Atlas).
+Use **Node.js 22.13+**, npm and MongoDB 8 (or Atlas).
 
 ```bash
-npm install
-cp .env.example .env
-cp frontend/.env.example frontend/.env.local
+git clone https://github.com/simranrizvi/social-flow.git
+cd social-flow
+npm ci
+npm run setup
+# Start your MongoDB service, or: docker compose up -d mongo
 npm run dev
 ```
 
-The frontend starts at `http://localhost:3000`; the API starts at `http://localhost:4000`. Check API availability at `http://localhost:4000/api/health`.
+`setup` creates local environment files only when absent and generates random JWT/encryption secrets. Review `.env` before starting. It never overwrites existing settings.
 
-Configure backend values in the root `.env`:
+| Service | Local address         | Purpose                                                                  |
+| ------- | --------------------- | ------------------------------------------------------------------------ |
+| Web     | http://localhost:3000 | Register a workspace, create and review content                          |
+| API     | http://localhost:4000 | REST API; `/api/health` for liveness, `/api/ready` for MongoDB readiness |
+| Worker  | No HTTP port          | Publishes due posts and fills enabled automation queues every 30 seconds |
 
-```env
-MONGODB_URI=mongodb://127.0.0.1:27017/ostras
-JWT_SECRET=replace-with-a-long-random-secret-at-least-32-characters
-TOKEN_ENCRYPTION_KEY=64-hex-characters-from-openssl-rand-hex-32
-OPENAI_API_KEY=your-openai-api-key
-META_APP_ID=your-meta-app-id
-META_APP_SECRET=your-meta-app-secret
-META_REDIRECT_URI=http://localhost:4000/api/integrations/instagram/callback
-N8N_WEBHOOK_URL=
-N8N_WEBHOOK_SECRET=
+Create an account at `/register`. Write a manual draft under **Create content**, save it, and find it in **Post library**. For publishing, configure Meta, connect Instagram in **Brand settings** and provide a public HTTPS JPEG image.
+
+Run processes separately when needed:
+
+```bash
+npm run dev -w @social-flow/frontend
+npm run dev -w @social-flow/backend
+npm run worker:dev -w @social-flow/backend
 ```
 
-Generate a 32-byte encryption key with `openssl rand -hex 32`. Do not commit `.env`, API keys, OAuth tokens, or real webhook secrets.
+## Project structure
 
-## n8n setup
+```text
+frontend/
+  src/
+    app/                   App Router pages, layouts, error and not-found states
+    components/            Shared navigation, authentication shell and icons
+    features/posts/        Post editor and paginated post fetching
+    lib/                   API client and structured API errors
+backend/
+  src/
+    config/                Environment validation and database connection
+    middleware/            Authentication, input validation and origin protection
+    modules/
+      auth/                Account routes and user model
+      brands/              Brand settings and model
+      dashboard/           Workspace overview queries
+      integrations/        OAuth, social accounts, Instagram and n8n adapters
+      posts/               Routes, controllers, schemas, model, AI and publishing
+    jobs/                  Dedicated scheduler and timezone calculations
+    utils/                 Error handling, async wrapper and token encryption
+    app.js                 Express composition, independent of the listener
+    server.js              API process with graceful shutdown
+    worker.js              Worker process with graceful shutdown
+  scripts/                 Explicit production index creation
+  tests/                   Database-backed API and unit tests
+scripts/                   Local environment setup
+n8n/                       Importable event intake workflow
+.github/workflows/         Automated quality checks
+docs/                      Deployment, operations and migration notes
+```
 
-1. Import `n8n/ostras-events.workflow.json` into your n8n instance.
-2. Activate the workflow and copy its **Production URL** from the Webhook node.
-3. Set `N8N_WEBHOOK_URL` to that URL in the backend environment.
-4. Generate a private secret with at least 16 characters and set it as `N8N_WEBHOOK_SECRET` in the backend environment. Use the same secret in n8n if you add signature verification.
-5. Restart the backend, open **Settings → n8n workflow automation**, and send a test event.
-6. Extend the starter workflow after its Webhook node with the actions you need, such as Slack notifications, CRM updates, or approval steps.
+Routes handle HTTP concerns; post controllers coordinate validation and database updates; integration adapters isolate provider calls. Workspace filters are applied on every post read/write. The API and worker share the same models and environment but run as separate processes.
 
-Each request includes an event name in both the JSON body and `x-ostras-event`, an ISO timestamp in `x-ostras-timestamp`, and `x-ostras-signature` (`sha256=<hex>`). The signature is HMAC-SHA256 over the exact raw JSON body, using `N8N_WEBHOOK_SECRET`. Verify it in n8n or a trusted gateway before taking sensitive actions. Webhook delivery is best-effort: a failed n8n request is logged and does not block content creation or publishing.
+## Configuration
 
-## Instagram publishing setup
+Backend configuration is loaded from the root `.env`; browser configuration lives in `frontend/.env.local`. Examples are committed without credentials.
 
-Instagram publishing needs an Instagram Business or Creator account and a Meta developer app configured for Instagram Login. Add the callback URL from `META_REDIRECT_URI` to your Meta app, enable the required Instagram business basic and content publishing permissions, and complete Meta's review requirements before connecting accounts outside development roles.
+| Variable                                | Usage                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `MONGODB_URI`                           | Local MongoDB or Atlas connection string                                                   |
+| `JWT_SECRET`                            | Random private secret, at least 32 characters                                              |
+| `TOKEN_ENCRYPTION_KEY`                  | 32-byte hexadecimal AES-256-GCM key; required for Meta                                     |
+| `WEB_ORIGIN`                            | Exact browser origin, with no trailing slash                                               |
+| `API_PUBLIC_URL`                        | API URL exposed to browsers and Instagram image downloads                                  |
+| `NEXT_PUBLIC_API_URL`                   | Browser API base URL; supplied at frontend build time                                      |
+| `TRUST_PROXY_HOPS`                      | Number of trusted reverse-proxy hops; defaults to zero                                     |
+| `OPENAI_API_KEY`                        | Enables AI generation; models configurable with `OPENAI_TEXT_MODEL` / `OPENAI_IMAGE_MODEL` |
+| `META_APP_ID`, `META_APP_SECRET`        | Your Instagram Login app credentials                                                       |
+| `META_REDIRECT_URI`                     | Must exactly match your Meta app's allowed callback URI                                    |
+| `META_GRAPH_VERSION`                    | Configurable provider API version; confirm support in your Meta app                        |
+| `UPLOAD_DIR`                            | Image directory relative to `backend/`, shared by API and worker                           |
+| `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` | Optional webhook URL and signing secret (16+ characters)                                   |
 
-Instagram fetches the image from a public HTTPS URL. Set `API_PUBLIC_URL` to a reachable HTTPS API host in production. For production deployments, use durable object storage/CDN for image files instead of the local uploads folder.
+Production requires HTTPS origins and a private JWT secret. Keep encryption keys stable: rotating or losing the encryption key requires reconnecting social accounts. Do not commit local environment files, real tokens or database backups.
 
-## Automatic publishing
+## Instagram and OpenAI
 
-Automatic publishing is disabled by default. Connect Instagram, add topics, set a weekly rhythm and timezone, then enable it in brand settings. Ostras prepares up to three posts ahead and the MongoDB-backed worker checks for due posts every 30 seconds. Failed posts remain in the library with an error message and can be reviewed and retried.
+Configure an Instagram Business or Creator account and a Meta app using **Instagram Login**. Request the business basic/content publishing permissions and complete Meta's review requirements for access beyond your development roles. Set your callback URL, configure the encryption key, restart the API and connect through settings.
 
-Run one scheduler-enabled API instance. Before scaling the API horizontally, move scheduled work to a dedicated worker and use a distributed lease or queue to prevent multiple instances processing the same work.
+Images must be publicly reachable by Meta over HTTPS. AI generation requests JPEG output; externally hosted images must also meet Meta's publishing specifications. Localhost uploads cannot be fetched by Meta. See [Meta's publishing guide](https://developers.facebook.com/docs/instagram-platform/content-publishing/).
 
-## API routes
+The AI assistant uses the configured OpenAI text/image models. Review factual claims and artwork before publishing. Enabling automation explicitly authorizes generation and publishing without individual review, which incurs provider usage costs.
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| POST | `/api/auth/register` | Create an account and brand workspace |
-| POST | `/api/auth/login` | Start a secure session |
-| GET | `/api/auth/me` | Load the current user and brand |
-| GET, PATCH | `/api/brand` | Read or update brand and publishing settings |
-| GET | `/api/dashboard` | Read post counts, recent activity, and upcoming content |
-| GET, POST | `/api/posts` | List or create posts |
-| POST | `/api/posts/generate` | Generate a caption and optional artwork |
-| POST | `/api/posts/:postId/schedule` | Schedule a draft |
-| POST | `/api/posts/:postId/publish` | Publish a reviewed post now |
-| GET | `/api/integrations/n8n/status` | Check n8n configuration |
-| POST | `/api/integrations/n8n/test` | Send a signed n8n test event |
-| GET | `/api/integrations/instagram/connect` | Start Instagram Login |
-| DELETE | `/api/integrations/instagram` | Disconnect Instagram |
+## Publishing lifecycle
 
-## Deployment
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> scheduled: Schedule or publish now
+    failed --> scheduled: Owner retries
+    scheduled --> draft: Return to draft
+    scheduled --> processing: Worker atomic claim
+    processing --> published: Provider confirms
+    processing --> failed: Provider error or interrupted job
+```
 
-Deploy `frontend/` and `backend/` as separate services, or deploy from the workspace root using the provided npm workspaces. Configure HTTPS, exact `WEB_ORIGIN`, `API_PUBLIC_URL`, `NEXT_PUBLIC_API_URL`, MongoDB, and all required secrets. Use a private MongoDB cluster, store secrets in the host's secret manager, back up MongoDB, and use durable storage for generated images. Configure the Meta app's privacy policy and data deletion requirements before requesting production access.
+**Publish now returns `202 Accepted`**, queues a post for the next worker tick and reports final status in the library. Keep the worker running. Scheduled timestamps are stored as UTC instants. Automation creates at most three upcoming posts per brand using 1–7 publishing days per week; multiple preferred times rotate across days rather than increasing the weekly count. Nonexistent local times during a DST transition are skipped.
+
+Each post can be claimed by one worker. A 15-minute brand lease prevents concurrent generation for a workspace. Processing jobs interrupted for more than 15 minutes move to `failed` for review. A provider may publish successfully before the connection drops: **check Instagram before retrying ambiguous failures**. Exactly-once external publishing is not guaranteed. Provider container IDs are retained for retries and reset when content is edited.
+
+Turning off automatic generation stops creating new automatic posts. Already scheduled posts still publish; return them to drafts to cancel them.
+
+## n8n integration
+
+1. Import `n8n/social-flow-events.workflow.json`.
+2. Activate it and copy its production webhook URL.
+3. Set `N8N_WEBHOOK_URL` and a random `N8N_WEBHOOK_SECRET`; restart the API and worker.
+4. Use **Brand settings → Send test event** to check delivery.
+5. Add your downstream steps after the intake node.
+
+Events include `post.created`, `post.scheduled`, `post.unscheduled`, `post.published`, `post.failed` and `integration.test`. The JSON body contains `source`, `event`, `timestamp` and `data`. Headers include `x-social-flow-event`, `x-social-flow-timestamp` and `x-social-flow-signature` (`sha256=<hex>`). Compute HMAC-SHA256 over the **exact raw request body** with the shared secret, compare in constant time and reject stale timestamps before taking actions.
+
+The starter only acknowledges requests; configure signature verification in n8n or a trusted gateway before connecting sensitive downstream steps. Delivery is best-effort, bounded by an eight-second timeout, and does not roll back a successful post update. There is no persistent webhook outbox/replay facility.
+
+## REST API
+
+All workspace routes require an HTTP-only session cookie (Bearer JWT is also accepted). The API accepts JSON. Errors use `{ error: { code, message, requestId, details? } }`; responses include `X-Request-Id`.
+
+| Method             | Route                                              | Purpose                                                          |
+| ------------------ | -------------------------------------------------- | ---------------------------------------------------------------- |
+| POST               | `/api/auth/register`, `/login`, `/logout`          | Create account, log in or clear session (all under `/api/auth`)  |
+| GET                | `/api/auth/me`                                     | User and current workspace                                       |
+| GET, PATCH         | `/api/brand`                                       | Read/update brand and automation settings                        |
+| GET                | `/api/dashboard`                                   | Counts, recent content and upcoming posts                        |
+| GET                | `/api/posts`                                       | Query `page`, `limit` (max 50), `status`, `search`, `from`, `to` |
+| POST               | `/api/posts`                                       | Create a manual draft                                            |
+| POST               | `/api/posts/generate`                              | Generate and save an AI draft (20 requests/user/hour)            |
+| GET, PATCH, DELETE | `/api/posts/:postId`                               | Read, edit or delete an eligible post                            |
+| POST               | `/api/posts/:postId/schedule`                      | Schedule using a future ISO UTC `scheduledAt`                    |
+| POST               | `/api/posts/:postId/unschedule`                    | Return a scheduled post to draft                                 |
+| POST               | `/api/posts/:postId/duplicate`                     | Copy content into a new draft                                    |
+| POST               | `/api/posts/:postId/publish`                       | Queue immediate publishing; returns 202                          |
+| GET                | `/api/integrations/instagram/connect`, `/callback` | Start/complete OAuth (both under `/api/integrations/instagram`)  |
+| DELETE             | `/api/integrations/instagram`                      | Disconnect account and disable future generation                 |
+| GET, POST          | `/api/integrations/n8n/status`, `/test`            | Check configuration / test delivery                              |
+| GET                | `/api/health`, `/api/ready`                        | Process liveness / database readiness                            |
+
+Published/processing posts cannot be edited. Only draft/failed posts can be deleted. To publish a scheduled post immediately, return it to draft first. Post date filters apply to `scheduledAt` as an inclusive start/exclusive end range. Searches match literal text in title/topic/caption.
+
+## Quality checks
+
+```bash
+npm run lint
+npm run format:check
+npm test
+npm run build
+# All of the above:
+npm run check
+```
+
+Tests start an isolated temporary MongoDB instance, exercise registration, tenant isolation, literal search, lifecycle restrictions, queue claiming and error contracts, and cover encryption, timezone/DST and validation. The first test run downloads a MongoDB binary; it needs network access. No real provider calls or credentials are used by tests.
+
+## Deployment and existing installations
+
+See [deployment and migration notes](docs/deployment.md) for Docker, indexes, volumes, HTTPS configuration and upgrade behavior. This implementation supports single-owner workspaces and Instagram feed images. Team invitations, approval roles, video/carousel publishing, provider analytics, distributed rate limiting, durable webhook retries and cloud object storage are future extensions rather than implemented features.

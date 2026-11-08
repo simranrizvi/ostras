@@ -1,37 +1,13 @@
-# Dependencies
 node_modules/
-
-# Legacy Supabase/Deno cache
-deno.lock
-deno.json
-.deno/
-.supabase/
-supabase/.temp/
-supabase/migrations/
-supabase/docker/
-supabase/.env
-legacy/supabase-functions/.env
-
-# Build artifacts
-dist/
-build/
-
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Local uploads and build outputs
-backend/uploads/
-uploads/
 .next/
 coverage/
-
-# Logs
+dist/
+build/
+.env
+.env.*
+!.env.example
+**/.env.local
+uploads/
 *.log
-
-# OS-specific
 .DS_Store
 Thumbs.db
-config.toml
-supabase/config.toml

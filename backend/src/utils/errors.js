@@ -5,19 +5,45 @@ export class AppError extends Error {
     this.code = code;
   }
 }
-
 export function notFound(req, _res, next) {
-  next(new AppError(`Route not found: ${req.method} ${req.originalUrl}`, 404, 'NOT_FOUND'));
+  next(new AppError(`Route not found: ${req.method} ${req.path}`, 404, 'NOT_FOUND'));
 }
-
-export function errorHandler(error, _req, res, _next) {
-  const status = error.statusCode || (error.name === 'ValidationError' ? 422 : 500);
-  if (status >= 500) console.error(error);
+export function errorHandler(error, req, res, _next) {
+  if (res.headersSent) return _next(error);
+  let status = error.statusCode || error.status || 500;
+  let code = typeof error.code === 'string' ? error.code : 'INTERNAL_ERROR';
+  let message = error.message;
+  if (['ZodError', 'ValidationError', 'CastError'].includes(error.name)) {
+    status = 422;
+    code = 'VALIDATION_ERROR';
+    message = error.issues?.[0]?.message || 'Invalid request.';
+  }
+  if (error.type === 'entity.parse.failed') {
+    status = 400;
+    code = 'INVALID_JSON';
+    message = 'Request body must be valid JSON.';
+  }
+  if (error.code === 11000) {
+    status = 409;
+    code = 'RESOURCE_CONFLICT';
+    message = 'An account or schedule with these details already exists.';
+  }
+  if (status >= 500)
+    console.error(
+      JSON.stringify({ level: 'error', requestId: req.id, code, message: error.message }),
+    );
   res.status(status).json({
     error: {
-      code: error.code || (error.name === 'ValidationError' ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR'),
-      message: status === 500 && process.env.NODE_ENV === 'production' ? 'Something went wrong.' : error.message,
-      details: error.name === 'ZodError' ? error.issues : undefined,
+      code,
+      message:
+        status >= 500 && process.env.NODE_ENV === 'production'
+          ? 'The service could not complete this request.'
+          : message,
+      requestId: req.id,
+      details:
+        error.name === 'ZodError'
+          ? error.issues.map(({ path, message }) => ({ path, message }))
+          : undefined,
     },
   });
 }

@@ -1,19 +1,24 @@
+import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { connectDatabase } from './config/database.js';
 import app from './app.js';
-import { startScheduler } from './services/scheduler.js';
 
 await connectDatabase();
-const server = app.listen(env.PORT, () => console.info(`Ostras API listening on port ${env.PORT}`));
-startScheduler();
-
-async function shutdown(signal) {
-  console.info(`${signal} received; closing Ostras API.`);
+const server = app.listen(env.PORT, () =>
+  console.info(`Social Flow API listening on port ${env.PORT}`),
+);
+server.requestTimeout = 180_000;
+let closing = false;
+function shutdown(signal) {
+  if (closing) return;
+  closing = true;
+  console.info(`${signal} received; draining Social Flow API.`);
+  const deadline = setTimeout(() => process.exit(1), 150_000);
+  deadline.unref();
   server.close(async () => {
-    const mongoose = await import('mongoose');
-    await mongoose.default.disconnect();
-    process.exit(0);
+    await mongoose.disconnect();
+    clearTimeout(deadline);
   });
 }
-process.on('SIGTERM', () => void shutdown('SIGTERM'));
-process.on('SIGINT', () => void shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

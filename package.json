@@ -1,15 +1,32 @@
 {
-  "name": "ostras-social-studio",
+  "name": "social-flow",
   "private": true,
   "version": "1.0.0",
-  "workspaces": ["backend", "frontend"],
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "dev": "concurrently -k -n backend,frontend -c blue,magenta \"npm run dev -w @ostras/backend\" \"npm run dev -w @ostras/frontend\"",
-    "build": "npm run build -w @ostras/frontend",
-    "start": "concurrently -k -n backend,frontend -c blue,magenta \"npm run start -w @ostras/backend\" \"npm run start -w @ostras/frontend\""
+    "dev": "concurrently -k -n api,web,worker \"npm run dev -w @social-flow/backend\" \"npm run dev -w @social-flow/frontend\" \"npm run worker:dev -w @social-flow/backend\"",
+    "build": "npm run build -w @social-flow/frontend",
+    "start": "concurrently -k -n api,web,worker \"npm run start -w @social-flow/backend\" \"npm run start -w @social-flow/frontend\" \"npm run worker -w @social-flow/backend\"",
+    "test": "npm run test -w @social-flow/backend",
+    "lint": "eslint backend frontend --max-warnings 0",
+    "check": "npm run lint && npm run format:check && npm test && npm run build",
+    "db:indexes": "npm run db:indexes -w @social-flow/backend",
+    "setup": "node scripts/setup.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.2.1",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10"
   },
-  "engines": { "node": ">=20.9.0" }
+  "engines": {
+    "node": ">=22.13.0"
+  }
 }
